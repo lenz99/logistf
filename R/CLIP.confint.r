@@ -84,7 +84,7 @@ CLIP.confint <- function(obj=NULL, variable=NULL, data, firth=TRUE, weightvar=NU
   
   
   if (!is.null(obj)) {
-    if (is.mira(obj)) {
+    if (mice::is.mira(obj)) {
       # assuming a mira object with fits on each imputed data set
       #          data.imp<-texteval(paste("",obj$call$data,"",sep=""))
       data.imp<-eval(obj$call$data)    #############GEHT NOCH NICHT!!
@@ -107,7 +107,7 @@ CLIP.confint <- function(obj=NULL, variable=NULL, data, firth=TRUE, weightvar=NU
     stop(paste("Please provide a list of fit objects or a mira object with fits on the ",nimp," imputed data sets.\n"))
   }     
   
-  if(is.null(variable))       variable<-names(fits[[1]]$coefficients)
+  if(is.null(variable)) variable <- names(fits[[1]]$coefficients)
   nvar<-length(variable)    
   
   
@@ -212,12 +212,16 @@ CLIP.confint <- function(obj=NULL, variable=NULL, data, firth=TRUE, weightvar=NU
     beta<-t(matrix(unlist(lapply(1:imputations,function(x) fits[[x]]$coefficients)),k,imputations))
     
 
-    lpdf<-function(zz,z) logistf.pdf(x=xyw[imputation.indicator==zz,1:k], y=xyw[imputation.indicator==zz,k+1], 
-                                     weight=xyw[imputation.indicator==zz,k+2], beta=beta[zz,],loglik=loglik[zz],
-                                     pos=pos, firth=firth, offset=offset, control=control, b=z, old=old)$pdf
+    lpdf<-function(zz,z) {
+        retVal <- NA_real_
+        try(retVal <- logistf.pdf(x=xyw[imputation.indicator==zz,1:k], y=xyw[imputation.indicator==zz,k+1], 
+                                  weight=xyw[imputation.indicator==zz,k+2], beta=beta[zz,],loglik=loglik[zz],
+                                  pos=pos, firth=firth, offset=offset, control=control, b=z, old=old)$pdf,
+            silent = FALSE)
+        retVal
+    }
     
-    f=function(z)  mean(unlist(lapply(1:imputations, function(zz) {lpdf(zz,z)}
-    )))
+    f <- function(z) mean(unlist(lapply(1:imputations, function(zz) {lpdf(zz,z)})), na.rm = TRUE)
     f.lower<-f(lowerbound.lo)-ci.level[1]
     f.upper<-f(upperbound.lo)-ci.level[1]
     iter[1]<-2
@@ -348,14 +352,4 @@ print.CLIP.confint <- function(
   cat("Iterations, mean: ", mean(object$iter), " max:", max(object$iter),"\n\n")
   cat("Confidence level, lower:", object$ci.level[1]*100,"%, upper:",object$ci.level[2]*100,"%\n")
   print(mat)
-}
-
-is.mira <- function(
-  object
-) {
-  if(is.null(attr(object,"class"))) 
-    return(FALSE)
-  if(attr(object,"class")=="mira") 
-    return(TRUE)
-  return(FALSE)
 }
